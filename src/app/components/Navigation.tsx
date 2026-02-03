@@ -1,4 +1,5 @@
 "use client";
+import { LogoutButton } from "@/components/logout-button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -27,6 +28,9 @@ export default function Navigation() {
               {item.label}
             </Link>
           ))}
+          <div className="content-center ml-auto">
+            <LogoutButton />
+          </div>
         </div>
       </div>
     </nav>

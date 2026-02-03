@@ -123,12 +123,12 @@ export default function UploadModal({
               htmlFor="upload-file-input"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
             >
-              Select a file (PDF, DOCX, or TXT)
+              Select a file (PDF, DOCX, TXT, JPG, JPEG, PNG)
             </label>
             <input
               id="upload-file-input"
               type="file"
-              accept=".pdf,.docx,.txt"
+              accept=".pdf,.docx,.txt, .jpg, .jpeg, .png"
               onChange={handleFileChange}
               className="block w-full text-sm text-gray-500
                 file:mr-4 file:py-2 file:px-4
@@ -179,10 +179,10 @@ export default function UploadModal({
 
           <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm">
             <p className="font-medium text-blue-900 dark:text-blue-200 mb-2">
-              Supported: PDF, DOCX, TXT
+              Supported: PDF, DOCX, TXT, JPG, JPEG, PNG
             </p>
             <p className="text-blue-700 dark:text-blue-400">
-              Files will be processed and embedded for RAG search.
+              Files will be processed and embedded for Document search.
             </p>
           </div>
         </div>

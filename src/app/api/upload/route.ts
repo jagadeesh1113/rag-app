@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import mammoth from "mammoth";
+import Tesseract from "tesseract.js";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!;
@@ -57,6 +58,17 @@ async function extractTextFromFile(file: File): Promise<string> {
     return result.value;
   } else if (fileName.endsWith(".txt")) {
     return buffer.toString("utf-8");
+  } else if (
+    fileName.endsWith(".jpg") ||
+    fileName.endsWith(".jpeg") ||
+    fileName.endsWith(".png")
+  ) {
+    const result = await Tesseract.recognize(buffer, "eng", {
+      logger: (msg) => {
+        console.log(msg);
+      },
+    });
+    return result.data.text;
   } else {
     throw new Error(
       "Unsupported file type. Please upload PDF, DOCX, or TXT files.",
