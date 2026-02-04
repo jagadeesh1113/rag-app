@@ -78,10 +78,13 @@ async function extractTextFromFile(file: File): Promise<string> {
 
 export async function POST(req: Request) {
   try {
-    const file = (await req.formData()).get("file") as File;
+    const formDataDetails = await req.formData();
+    const file = formDataDetails.get("file") as File;
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
+
+    const userId = formDataDetails.get("userId");
 
     const documentId = crypto.randomUUID();
     const uploadDate = new Date().toISOString();
@@ -168,6 +171,7 @@ export async function POST(req: Request) {
           file_url: urlData.publicUrl,
         },
         embedding: JSON.stringify(emb.data[0].embedding),
+        owner: userId,
       });
 
       if (error) {

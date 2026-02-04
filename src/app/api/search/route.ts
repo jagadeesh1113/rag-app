@@ -2,6 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,12 +21,19 @@ export async function POST(req: Request) {
       input: query,
     });
 
+    const supabaseServer = await createServerClient();
+
+    const {
+      data: { user },
+    } = await supabaseServer.auth.getUser();
+
     // Find similar documents using vector similarity search
     // The match_documents function finds the 5 most similar chunks
     const { data: results, error } = await supabase.rpc("match_documents", {
       query_embedding: JSON.stringify(emb.data[0].embedding),
       match_threshold: 0.0, // Accept any similarity (you can increase this for stricter matching)
       match_count: 5, // Return top 5 most similar chunks
+      owner_id: user?.id,
     });
 
     if (error) {

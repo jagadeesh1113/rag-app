@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!;
@@ -14,6 +15,12 @@ export async function GET(req: Request) {
     const id = reqUrl.searchParams.get("id");
     const file = reqUrl.searchParams.get("file") === "true";
     const view = reqUrl.searchParams.get("view") === "true";
+
+    const supabaseServer = await createServerClient();
+
+    const {
+      data: { user },
+    } = await supabaseServer.auth.getUser();
 
     // Handle file download/view
     if (id && file) {
@@ -101,7 +108,8 @@ export async function GET(req: Request) {
     // List all documents
     const { data: documents, error } = await supabase
       .from("documents")
-      .select("metadata");
+      .select("metadata")
+      .eq("owner", user?.id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

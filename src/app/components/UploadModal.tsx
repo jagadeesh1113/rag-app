@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -19,6 +20,8 @@ export default function UploadModal({
     type: "success" | "error";
     text: string;
   } | null>(null);
+
+  const authDetails = useAuth();
 
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "unset";
@@ -50,6 +53,7 @@ export default function UploadModal({
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("userId", authDetails?.user?.id ?? "");
 
       const res = await fetch("/api/upload", {
         method: "POST",
