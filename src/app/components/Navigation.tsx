@@ -1,5 +1,6 @@
 "use client";
 import { LogoutButton } from "@/components/logout-button";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -32,9 +33,18 @@ export default function Navigation() {
       <div className="max-w-4xl mx-auto px-4">
         <div className="flex items-center h-14">
           {/* Logo / Brand */}
-          <span className="text-sm font-bold text-gray-900 dark:text-gray-100 mr-6 shrink-0 hidden sm:block">
-            Jaanu
-          </span>
+          <div className="flex items-center gap-2 mr-6 shrink-0">
+            <Image
+              src="/jaanu-icon.svg"
+              alt="Jaanu"
+              width={28}
+              height={28}
+              className="rounded-lg"
+            />
+            <span className="text-sm font-bold text-gray-900 dark:text-gray-100 hidden sm:block">
+              Jaanu
+            </span>
+          </div>
 
           {/* Nav links */}
           <div className="flex items-center gap-1 flex-1">

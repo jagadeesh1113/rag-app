@@ -16,6 +16,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Jaanu",
   description: "Jaanu - Your Buddy",
+  icons: {
+    icon: "/jaanu-icon.svg",
+    shortcut: "/jaanu-icon.svg",
+    apple: "/jaanu-icon.svg",
+  },
+  openGraph: {
+    title: "Jaanu",
+    description: "Jaanu - Your Buddy",
+    images: [{ url: "/jaanu-icon.svg" }],
+  },
 };
 
 export default function RootLayout({

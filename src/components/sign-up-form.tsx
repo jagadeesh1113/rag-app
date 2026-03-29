@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -58,10 +59,16 @@ export function SignUpForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
+      {/* Branding */}
+      <div className="flex flex-col items-center gap-2">
+        <Image src="/jaanu-icon.svg" alt="Jaanu" width={48} height={48} className="rounded-xl" />
+        <span className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">Jaanu</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500 tracking-wide">your buddy search</span>
+      </div>
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Sign up</CardTitle>
-          <CardDescription>Create a new account</CardDescription>
+          <CardTitle className="text-2xl">Create an account</CardTitle>
+          <CardDescription>Enter your details to get started</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignUp}>
