@@ -33,7 +33,7 @@ export default function Navigation() {
         <div className="flex items-center h-14">
           {/* Logo / Brand */}
           <span className="text-sm font-bold text-gray-900 dark:text-gray-100 mr-6 shrink-0 hidden sm:block">
-            RAG Search
+            Jaanu
           </span>
 
           {/* Nav links */}

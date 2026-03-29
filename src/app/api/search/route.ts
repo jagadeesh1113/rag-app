@@ -11,7 +11,9 @@ const supabase = createClient(
 const openai = new OpenAI();
 
 // GET /api/search — return search history for the logged-in user
-export async function GET() {
+// When ?conversationId=<id> is provided, returns all messages for that conversation.
+// Otherwise returns one summary item per conversation, ordered by most recent activity.
+export async function GET(req: Request) {
   try {
     const supabaseServer = await createServerClient();
     const {
@@ -19,21 +21,64 @@ export async function GET() {
     } = await supabaseServer.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ history: [] });
+      return NextResponse.json({ history: [], messages: [] });
     }
 
+    const { searchParams } = new URL(req.url);
+    const conversationId = searchParams.get("conversationId");
+
+    // ── Fetch all messages for a specific conversation ──
+    if (conversationId) {
+      const { data, error } = await supabase
+        .from("search_history")
+        .select("id, query, answer, sources, searched_at, conversation_id")
+        .eq("owner", user.id)
+        .eq("conversation_id", conversationId)
+        .order("searched_at", { ascending: true });
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ messages: data || [] });
+    }
+
+    // ── Fetch all rows then group by conversation_id client-side ──
     const { data, error } = await supabase
       .from("search_history")
-      .select("id, query, answer, sources, searched_at")
+      .select("id, query, answer, sources, searched_at, conversation_id")
       .eq("owner", user.id)
       .order("searched_at", { ascending: false })
-      .limit(50);
+      .limit(200);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ history: data || [] });
+    const rows = data || [];
+
+    // Group rows by conversation_id, keeping the FIRST (most-recent) row as the
+    // conversation summary (title = opening query, preview = latest answer).
+    const seen = new Map<string, typeof rows[number]>();
+    for (const row of rows) {
+      const key = row.conversation_id ?? row.id; // fall back to row id for legacy rows
+      if (!seen.has(key)) {
+        // rows are ordered newest-first, so this is the latest message in the convo
+        seen.set(key, row);
+      } else {
+        // Keep the earliest query as the conversation title
+        const existing = seen.get(key)!;
+        if (new Date(row.searched_at) < new Date(existing.searched_at)) {
+          seen.set(key, { ...row, answer: existing.answer, searched_at: existing.searched_at });
+        }
+      }
+    }
+
+    const history = Array.from(seen.values()).sort(
+      (a, b) => new Date(b.searched_at).getTime() - new Date(a.searched_at).getTime(),
+    );
+
+    return NextResponse.json({ history });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -101,7 +146,10 @@ export async function POST(req: Request) {
         })
         .then(({ error: insertError }) => {
           if (insertError) {
-            console.warn("[search_history] Failed to save:", insertError.message);
+            console.warn(
+              "[search_history] Failed to save:",
+              insertError.message,
+            );
           }
         });
     }

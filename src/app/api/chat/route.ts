@@ -50,14 +50,17 @@ async function retrieveContext(
 
 export async function POST(req: Request) {
   try {
-    const { messages }: { messages: UIMessage[] } = await req.json();
+    const {
+      messages,
+      conversationId,
+    }: { messages: UIMessage[]; conversationId: string } = await req.json();
 
     const supabaseServer = await createServerClient();
     const {
       data: { user },
     } = await supabaseServer.auth.getUser();
 
-    // Extract text from the latest user message to embed for RAG
+    // Latest user message = what we embed for RAG retrieval
     const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
     const query =
       lastUserMsg?.parts
@@ -83,18 +86,24 @@ ${context}
       messages: await convertToModelMessages(messages),
       onFinish: async ({ text }) => {
         if (!user) return;
-        supabase
+        const now = new Date().toISOString();
+        // Upsert the conversation summary row (one row per conversation)
+        await supabase
           .from("search_history")
-          .insert({
-            query,
-            answer: text,
-            sources,
-            owner: user.id,
-            searched_at: new Date().toISOString(),
-          })
+          .upsert(
+            {
+              query, // always the opening question as the title
+              answer: text, // latest AI reply shown in preview
+              sources,
+              owner: user.id,
+              searched_at: now,
+              conversation_id: conversationId,
+            },
+            { onConflict: "id" },
+          )
           .then(({ error: err }) => {
             if (err)
-              console.warn("[chat] Failed to save history:", err.message);
+              console.warn("[chat] Failed to upsert history:", err.message);
           });
       },
     });
