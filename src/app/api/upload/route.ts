@@ -6,6 +6,9 @@ import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import mammoth from "mammoth";
 import Tesseract from "tesseract.js";
 import { OfficeParser } from "officeparser";
+import * as fs from "fs";
+import * as nodePath from "path";
+import * as os from "os";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!;
@@ -24,11 +27,6 @@ function safeDecodeURIComponent(str: string): string {
       return str;
     }
   }
-}
-
-async function extractTextFromPPTX(buffer: Buffer): Promise<string> {
-  const ast = await OfficeParser.parseOffice(buffer);
-  return ast.toText();
 }
 
 async function extractTextFromFile(file: File): Promise<string> {
@@ -63,14 +61,32 @@ async function extractTextFromFile(file: File): Promise<string> {
   } else if (fileName.endsWith(".docx")) {
     const result = await mammoth.extractRawText({ buffer });
     return result.value;
-  } else if (fileName.endsWith(".pptx") || fileName.endsWith(".ppt")) {
-    const text = await extractTextFromPPTX(buffer);
-    if (!text || text.trim().length === 0) {
-      throw new Error(
-        "No text content could be extracted from the presentation. The file may contain only images or be empty.",
-      );
+  } else if (fileName.endsWith(".ppt") || fileName.endsWith(".pptx")) {
+    // officeparser v6 requires a real file path (not a Buffer) to detect
+    // the file type from its extension. Write to a temp file, parse, then clean up.
+    const ext = fileName.endsWith(".pptx") ? "pptx" : "ppt";
+    const tmpFile = nodePath.join(os.tmpdir(), `upload_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`);
+    try {
+      fs.writeFileSync(tmpFile, buffer);
+      return await new Promise<string>((resolve, reject) => {
+        OfficeParser.parseOffice(
+          tmpFile,
+          (data: any, err: Error) => {
+            if (err) return reject(new Error(`Error extracting text from PPT: ${err.message}`));
+            // officeparser may return a string or an array of strings (one per slide)
+            const text = Array.isArray(data)
+              ? data.join(" ").trim()
+              : String(data ?? "").trim();
+            if (!text)
+              return reject(new Error("No text could be extracted. The file may contain only images or be empty."));
+            resolve(text);
+          },
+          { outputErrorToConsole: false },
+        );
+      });
+    } finally {
+      try { fs.unlinkSync(tmpFile); } catch { /* ignore cleanup errors */ }
     }
-    return text;
   } else if (fileName.endsWith(".txt")) {
     return buffer.toString("utf-8");
   } else if (

@@ -10,29 +10,56 @@ const supabase = createClient(
 );
 const openai = new OpenAI();
 
+// GET /api/search — return search history for the logged-in user
+export async function GET() {
+  try {
+    const supabaseServer = await createServerClient();
+    const {
+      data: { user },
+    } = await supabaseServer.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ history: [] });
+    }
+
+    const { data, error } = await supabase
+      .from("search_history")
+      .select("id, query, answer, sources, searched_at")
+      .eq("owner", user.id)
+      .order("searched_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ history: data || [] });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// POST /api/search — run a RAG search and persist the result to history
 export async function POST(req: Request) {
   try {
     const { query } = await req.json();
 
     // Generate embedding for the user's query
-    // This converts the search query into the same vector space as document chunks
     const emb = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: query,
     });
 
     const supabaseServer = await createServerClient();
-
     const {
       data: { user },
     } = await supabaseServer.auth.getUser();
 
     // Find similar documents using vector similarity search
-    // The match_documents function finds the 5 most similar chunks
     const { data: results, error } = await supabase.rpc("match_documents", {
       query_embedding: JSON.stringify(emb.data[0].embedding),
-      match_threshold: 0.0, // Accept any similarity (you can increase this for stricter matching)
-      match_count: 5, // Return top 5 most similar chunks
+      match_threshold: 0.0,
+      match_count: 5,
       owner_id: user?.id,
     });
 
@@ -41,11 +68,9 @@ export async function POST(req: Request) {
     }
 
     // Combine retrieved chunks into context
-    // These chunks will be used as context for the AI to generate an answer
     const context = results?.map((r: any) => r.content).join("\n---\n") || "";
 
     // Generate answer using OpenAI with retrieved context
-    // This is the "Generation" part of RAG
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
@@ -61,10 +86,27 @@ export async function POST(req: Request) {
       ],
     });
 
-    return NextResponse.json({
-      answer: completion.choices[0].message.content,
-      sources: results,
-    });
+    const answer = completion.choices[0].message.content;
+
+    // Persist to search_history (fire-and-forget — don't block the response)
+    if (user) {
+      supabase
+        .from("search_history")
+        .insert({
+          query,
+          answer,
+          sources: results,
+          owner: user.id,
+          searched_at: new Date().toISOString(),
+        })
+        .then(({ error: insertError }) => {
+          if (insertError) {
+            console.warn("[search_history] Failed to save:", insertError.message);
+          }
+        });
+    }
+
+    return NextResponse.json({ answer, sources: results });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
