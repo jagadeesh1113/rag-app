@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import mammoth from "mammoth";
 import Tesseract from "tesseract.js";
+import { OfficeParser } from "officeparser";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!;
@@ -24,6 +25,12 @@ function safeDecodeURIComponent(str: string): string {
     }
   }
 }
+
+async function extractTextFromPPTX(buffer: Buffer): Promise<string> {
+  const ast = await OfficeParser.parseOffice(buffer);
+  return ast.toText();
+}
+
 async function extractTextFromFile(file: File): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
   const fileName = file.name.toLowerCase();
@@ -56,6 +63,14 @@ async function extractTextFromFile(file: File): Promise<string> {
   } else if (fileName.endsWith(".docx")) {
     const result = await mammoth.extractRawText({ buffer });
     return result.value;
+  } else if (fileName.endsWith(".pptx") || fileName.endsWith(".ppt")) {
+    const text = await extractTextFromPPTX(buffer);
+    if (!text || text.trim().length === 0) {
+      throw new Error(
+        "No text content could be extracted from the presentation. The file may contain only images or be empty.",
+      );
+    }
+    return text;
   } else if (fileName.endsWith(".txt")) {
     return buffer.toString("utf-8");
   } else if (
@@ -71,7 +86,7 @@ async function extractTextFromFile(file: File): Promise<string> {
     return result.data.text;
   } else {
     throw new Error(
-      "Unsupported file type. Please upload PDF, DOCX, or TXT files.",
+      "Unsupported file type. Please upload PDF, DOCX, PPTX, PPT, or TXT files.",
     );
   }
 }
@@ -136,8 +151,6 @@ export async function POST(req: Request) {
     }
 
     // Split text into chunks
-    // Chunk size of 800 characters with 100-character overlap ensures
-    // we don't lose context at chunk boundaries
     const textSplitter = new RecursiveCharacterTextSplitter({
       chunkSize: 800,
       chunkOverlap: 100,
@@ -148,14 +161,11 @@ export async function POST(req: Request) {
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
 
-      // Generate embedding using OpenAI
-      // This converts the text chunk into a 1536-dimensional vector
       const emb = await openai.embeddings.create({
         model: "text-embedding-3-small",
         input: chunk,
       });
 
-      // Store chunk with embedding in database
       const { error } = await supabase.from("documents").insert({
         content: chunk,
         metadata: {

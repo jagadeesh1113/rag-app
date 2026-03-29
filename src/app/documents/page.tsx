@@ -15,6 +15,27 @@ interface Document {
   file_path?: string;
 }
 
+function getFileIcon(fileName: string): string {
+  const name = fileName.toLowerCase();
+  if (name.endsWith(".pdf")) return "📄";
+  if (name.endsWith(".docx") || name.endsWith(".doc")) return "📝";
+  if (name.endsWith(".pptx") || name.endsWith(".ppt")) return "📊";
+  if (name.endsWith(".txt") || name.endsWith(".md")) return "📃";
+  if (name.match(/\.(jpg|jpeg|png|gif|webp)$/)) return "🖼️";
+  return "📁";
+}
+
+function isPPT(fileName: string): boolean {
+  return (
+    fileName.toLowerCase().endsWith(".pptx") ||
+    fileName.toLowerCase().endsWith(".ppt")
+  );
+}
+
+function isPDF(fileName: string): boolean {
+  return fileName.toLowerCase().endsWith(".pdf");
+}
+
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
@@ -170,12 +191,21 @@ export default function DocumentsPage() {
                       className="hover:bg-gray-50 dark:hover:bg-gray-800"
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {doc.file_name}
+                        <div className="flex items-center gap-2">
+                          <span>{getFileIcon(doc.file_name)}</span>
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {doc.file_name}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                        <span
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            isPPT(doc.file_name)
+                              ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+                              : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                          }`}
+                        >
                           {doc.file_type || "unknown"}
                         </span>
                       </td>
@@ -190,7 +220,7 @@ export default function DocumentsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-3 items-center">
-                          {doc.file_name.toLowerCase().endsWith(".pdf") ? (
+                          {isPDF(doc.file_name) ? (
                             <button
                               onClick={() => {
                                 const pdfUrl = doc.file_url
@@ -207,6 +237,22 @@ export default function DocumentsPage() {
                             >
                               Preview
                             </button>
+                          ) : isPPT(doc.file_name) ? (
+                            /* PPT files: download only — no in-browser preview */
+                            (doc.file_url || doc.file_path) && (
+                              <a
+                                href={
+                                  doc.file_url ||
+                                  `/api/documents?id=${doc.id}&file=true`
+                                }
+                                download={doc.file_name}
+                                className="text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                Download
+                              </a>
+                            )
                           ) : (
                             <>
                               <button
